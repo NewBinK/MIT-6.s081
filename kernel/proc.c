@@ -85,6 +85,15 @@ myproc(void) {
   return p;
 }
 
+uint64
+unused_proc(){
+  uint64 nproc = 0;
+  
+  for(int i = 0; i < NPROC; ++i)
+    if(proc[i].state != UNUSED) nproc++;
+  return nproc;
+}
+
 int
 allocpid() {
   int pid;
@@ -295,6 +304,7 @@ fork(void)
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
+  np->trace_mask = p->trace_mask;// playf: enable trace child process
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
