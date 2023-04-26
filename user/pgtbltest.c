@@ -3,7 +3,7 @@
 #include "kernel/types.h"
 #include "kernel/riscv.h"
 #include "user/user.h"
-
+#include "kernel/memlayout.h"
 void ugetpid_test();
 void pgaccess_test();
 
@@ -41,6 +41,11 @@ ugetpid_test()
         exit(1);
       continue;
     }
+    printf("hi\n");
+    printf("%d\n", 0x0000003fffffd000 == USYSCALL);
+    printf("%d\n", ugetpid());
+    printf("end\n");
+
     if (getpid() != ugetpid())
       err("missmatched PID");
     exit(0);
