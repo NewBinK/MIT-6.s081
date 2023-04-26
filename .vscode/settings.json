@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "user.h": "c",
+        "param.h": "c",
+        "date.h": "c",
+        "memlayout.h": "c",
+        "spinlock.h": "c",
+        "proc.h": "c",
+        "defs.h": "c",
+        "functional": "c",
+        "random": "c"
+    }
+}

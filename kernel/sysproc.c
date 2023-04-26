@@ -77,12 +77,41 @@ sys_sleep(void)
 
 
 #ifdef LAB_PGTBL
+pte_t *
+walk(pagetable_t pagetable, uint64 va, int alloc);
 int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  uint64 addr; argaddr(0, &addr);
+  int len; argint(1, &len);
+  uint64 mask; argaddr(2, &mask);
+  // unsigned int buf[32];
+  // memset(buf, 0, sizeof buf);
+  struct proc *cur_proc = myproc();
+  if(len > 32*32){
+    panic("too many page to check");
+  }
+
+  uint64 pte_mask = PGROUNDDOWN(mask);
+  uint64 pa_mask = walkaddr(cur_proc->pagetable, pte_mask) + mask - pte_mask; //mask的物理地址
+  unsigned* buf = (unsigned int*) pa_mask;
+
+  for(int i = 0; i < len; ++i){
+    pte_t *pte;
+    if((pte = walk(cur_proc->pagetable, addr + i*PGSIZE, 0)) != 0){
+      if(*pte & PTE_A) {
+        // printf("???");
+        *pte &= (~PTE_A);
+        buf[i/32] |= 1<<(i&31);
+      }else{
+        buf[i/32] &= ~(1LL<<(i&31));
+      }
+    }
+  }
   return 0;
 }
+//copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 #endif
 
 uint64

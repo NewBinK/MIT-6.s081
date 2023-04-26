@@ -127,21 +127,6 @@ exec(char *path, char **argv)
   }
   return -1;
 }
-void dfs(pagetable_t cur, int level){
-  for(int i = 0; i < (1<<9); ++i){
-    pte_t val = cur[i];
-    if(val&PTE_V){
-      for(int j = 0; j < 6-level*2; ++j) printf(".");
-      printf("%d: pte %p pa %p\n", i, val, PTE2PA(val));
-      if(level) dfs((pagetable_t)PTE2PA(val), level-1);
-    }
-  }
-}
-void vmprint(pagetable_t pagetable){
-  printf("page table %p\n", pagetable);
-  dfs(pagetable, 2);
-  return;
-}
 
 // Load a program segment into pagetable at virtual address va.
 // va must be page-aligned
