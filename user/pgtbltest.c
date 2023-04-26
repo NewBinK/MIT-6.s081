@@ -41,10 +41,8 @@ ugetpid_test()
         exit(1);
       continue;
     }
-    printf("hi\n");
-    printf("%d\n", 0x0000003fffffd000 == USYSCALL);
-    printf("%d\n", ugetpid());
-    printf("end\n");
+    // printf("%d\n", 0x0000003fffffd000 == USYSCALL);
+    // printf("%d\n", ugetpid());
 
     if (getpid() != ugetpid())
       err("missmatched PID");

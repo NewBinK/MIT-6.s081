@@ -130,9 +130,6 @@ found:
     freeproc(p);
     release(&p->lock);
   }
-  printf("%p\n", USYSCALL);
-  struct usyscall *tmp = p->usyscall;
-  printf("%p\n", tmp);
   (p->usyscall)->pid = p->pid;
   
   // An empty user page table.
@@ -209,15 +206,13 @@ proc_pagetable(struct proc *p)
   }
   // map the USYSCALL just below trapframe
   if(mappages(pagetable, USYSCALL, PGSIZE,
-              (uint64)(p->usyscall), PTE_R) < 0){
-    
+              (uint64)(p->usyscall), PTE_R | PTE_U) < 0){
+
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmfree(pagetable, 0);
     return 0;
   }
-  struct usyscall *u = (struct usyscall *)USYSCALL;
-  printf("pid :%d\n", u->pid);
 
   return pagetable;
 }
