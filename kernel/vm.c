@@ -371,16 +371,21 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(pa0 == 0)
       return -1;
     
-    if(*pte&PTE_COW){//需要重新映射一下, todo 引用为1的时候取消cow
-      uint64 new_pa;
-      if((new_pa = (uint64)kalloc()) == 0){//空间不够
-        printf("no enough mem while copyout do cow!\n"); return -1;
+    if(*pte&PTE_COW){//需要重新映射一下
+      if(get_ref((void*)pa0) == 1){//引用为1的时候取消cow
+        *pte &= (~PTE_COW);
+        *pte |= PTE_W;
+      }else{
+        uint64 new_pa;
+        if((new_pa = (uint64)kalloc()) == 0){//空间不够
+          printf("no enough mem while copyout do cow!\n"); return -1;
+        }
+        uint64 flag = PTE_FLAGS(*pte) & (~PTE_COW);
+        memmove((void*)new_pa, (void*)pa0, PGSIZE);
+        kfree((void*)pa0);
+        *pte = PA2PTE(new_pa) | flag | PTE_W;
+        pa0 = new_pa;
       }
-      uint64 flag = PTE_FLAGS(*pte) & (~PTE_COW);
-      memmove((void*)new_pa, (void*)pa0, PGSIZE);
-      kfree((void*)pa0);
-      *pte = PA2PTE(new_pa) | flag | PTE_W;
-      pa0 = new_pa;
     }
 
     n = PGSIZE - (dstva - va0);

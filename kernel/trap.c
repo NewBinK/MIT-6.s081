@@ -91,18 +91,22 @@ usertrap(void)
 
     //复制
     uint64 pa;//申请空间
-    //todo 引用为1的时候取消cow
-    if((pa = (uint64) kalloc()) == 0){//申请失败杀死进程
-      p->killed = 1; goto kill;
+    if(get_ref((void*)PTE2PA(*pte) ) == 1){//引用为1
+      *pte &= (~PTE_COW);
+      *pte |= PTE_W;
+    }else{//引用不为1
+      if((pa = (uint64) kalloc()) == 0){//申请失败杀死进程
+        p->killed = 1; goto kill;
+      }
+      uint64 flag = PTE_FLAGS(*pte) & (~PTE_COW);//消除flag中的cow标志
+
+      memmove((void*)pa, (char*)PTE2PA(*pte), PGSIZE);//拷贝原有内容
+
+      kfree((void*)PTE2PA(*pte));//拷贝后舍弃原本引用
+      *pte = PA2PTE(pa) | flag | PTE_W;//新的PTE
     }
-    uint64 flag = PTE_FLAGS(*pte) & (~PTE_COW);//消除flag中的cow标志
 
-    memmove((void*)pa, (char*)PTE2PA(*pte), PGSIZE);//拷贝原有内容
-
-    kfree((void*)PTE2PA(*pte));//拷贝后舍弃原本引用
-    *pte = PA2PTE(pa) | flag | PTE_W;//新的PTE
-
-    // mappages(p->pagetable, va, PGSIZE, pa, )
+    
 
   }else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
