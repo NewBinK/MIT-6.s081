@@ -71,23 +71,34 @@ usertrap(void)
     uint64 va = r_stval();
     // printf("store page fault:%p\n", va);
     //分配物理内存
-    uint64 pa = (uint64) kalloc();
-    if(pa == 0){
-      p->killed = 1;
-      goto kill;
-    }
+    // uint64 pa = (uint64) kalloc();
+    // if(pa == 0){
+    //   p->killed = 1;
+    //   goto kill;
+    // }
     //得到虚拟内存and对应页表内容
     va = PGROUNDDOWN(va);
     pte_t* pte = walk(p->pagetable, va, 0);
     if(pte == 0 || ((*pte)&PTE_V) == 0){//这个虚拟内存还没映射
-      kfree((void*)pa);//释放分配的物理内存
       p->killed = 1;
       goto kill;
     }
-    //复制: flag|PTE_W, copy
-    uint64 flag = PTE_FLAGS(*pte);
+    //处理COW
+    
+    if(!(*pte&PTE_COW)){//不是一个COW page
+      printf("no permission to store value at virtual addr:%p\n", va);
+      p->killed = 1;
+      goto kill;
+    }
+    //复制
+    uint64 pa;//申请空间
+    if((pa = (uint64) kalloc()) == 0){//申请失败杀死进程
+      p->killed = 1; goto kill;
+    }
+    uint64 flag = PTE_FLAGS(*pte) & (~PTE_COW);//消除flag中的cow标志
 
-    memmove((void*)pa, (char*)PTE2PA(*pte), PGSIZE);//拷贝原有引用
+    memmove((void*)pa, (char*)PTE2PA(*pte), PGSIZE);//拷贝原有内容
+
     kfree((void*)PTE2PA(*pte));//拷贝后舍弃原本引用
     *pte = PA2PTE(pa) | flag | PTE_W;//新的PTE
 

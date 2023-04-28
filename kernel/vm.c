@@ -316,6 +316,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
 
     (*pte) &= (~PTE_W);
+    (*pte) |= PTE_COW;
     if((new_pte = walk(new, i, 1)) == 0){
       printf("out of memery to alloc pagetable!");
       goto err;
@@ -353,13 +354,30 @@ uvmclear(pagetable_t pagetable, uint64 va)
 int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
+
   uint64 n, va0, pa0;
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+    pte_t * pte = walk(pagetable, va0, 0);
+    if(pte == 0 || (*pte&PTE_V) == 0 || (*pte&PTE_U) == 0){return -1;}//获取页表项
+    
+    pa0 = PTE2PA(*pte);
+    // pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
+    if(*pte&PTE_COW){//需要重新映射一下
+      uint64 new_pa;
+      if((new_pa = (uint64)kalloc()) == 0){//空间不够
+        printf("no enough mem while copyout do cow!\n"); return -1;
+      }
+      uint64 flag = PTE_FLAGS(*pte) & (~PTE_COW);
+      memmove((void*)new_pa, (void*)pa0, PGSIZE);
+      kfree((void*)pa0);
+      *pte = PA2PTE(new_pa) | flag | PTE_W;
+      pa0 = new_pa;
+    }
+
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;
