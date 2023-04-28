@@ -67,12 +67,39 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } else if(r_scause() == 15){
+    uint64 va = r_stval();
+    // printf("store page fault:%p\n", va);
+    //分配物理内存
+    uint64 pa = (uint64) kalloc();
+    if(pa == 0){
+      p->killed = 1;
+      goto kill;
+    }
+    //得到虚拟内存and对应页表内容
+    va = PGROUNDDOWN(va);
+    pte_t* pte = walk(p->pagetable, va, 0);
+    if(pte == 0 || ((*pte)&PTE_V) == 0){//这个虚拟内存还没映射
+      kfree((void*)pa);//释放分配的物理内存
+      p->killed = 1;
+      goto kill;
+    }
+    //复制: flag|PTE_W, copy
+    uint64 flag = PTE_FLAGS(*pte);
+
+    memmove((void*)pa, (char*)PTE2PA(*pte), PGSIZE);//拷贝原有引用
+    kfree((void*)PTE2PA(*pte));//拷贝后舍弃原本引用
+    *pte = PA2PTE(pa) | flag | PTE_W;//新的PTE
+
+    // mappages(p->pagetable, va, PGSIZE, pa, )
+
+  }else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
 
+kill:
   if(p->killed)
     exit(-1);
 
