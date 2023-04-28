@@ -80,8 +80,10 @@ kvminithart()
 pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
 {
-  if(va >= MAXVA)
+  if(va >= MAXVA){
+    printf("dst va:%p\n", va);
     panic("walk");
+  }
 
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
@@ -354,9 +356,11 @@ uvmclear(pagetable_t pagetable, uint64 va)
 int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
-
+  if(dstva >= MAXVA){
+    return -1;
+  }
   uint64 n, va0, pa0;
-
+  
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
     pte_t * pte = walk(pagetable, va0, 0);
@@ -366,7 +370,8 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     // pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
-    if(*pte&PTE_COW){//需要重新映射一下
+    
+    if(*pte&PTE_COW){//需要重新映射一下, todo 引用为1的时候取消cow
       uint64 new_pa;
       if((new_pa = (uint64)kalloc()) == 0){//空间不够
         printf("no enough mem while copyout do cow!\n"); return -1;

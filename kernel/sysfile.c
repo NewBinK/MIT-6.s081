@@ -294,7 +294,7 @@ sys_open(void)
 
   if((n = argstr(0, path, MAXPATH)) < 0 || argint(1, &omode) < 0)
     return -1;
-
+    
   begin_op();
 
   if(omode & O_CREATE){
