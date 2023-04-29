@@ -256,10 +256,12 @@ growproc(int n)
   struct proc *p = myproc();
 
   sz = p->sz;
+  if((uint64)sz + n >= 128*1024*1024) return -1;//too much
   if(n > 0){
-    if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
-      return -1;
-    }
+    // if((sz = uvmalloc(p->pagetable, sz, sz + n)) == 0) {
+    //   return -1;
+    // }
+    sz += n;
   } else if(n < 0){
     sz = uvmdealloc(p->pagetable, sz, sz + n);
   }

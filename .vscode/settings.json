@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "atomic": "c",
-        "*.tcc": "c"
+        "*.tcc": "c",
+        "spinlock.h": "c"
     }
 }

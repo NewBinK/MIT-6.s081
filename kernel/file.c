@@ -138,7 +138,6 @@ filewrite(struct file *f, uint64 addr, int n)
 
   if(f->writable == 0)
     return -1;
-
   if(f->type == FD_PIPE){
     ret = pipewrite(f->pipe, addr, n);
   } else if(f->type == FD_DEVICE){
@@ -165,7 +164,6 @@ filewrite(struct file *f, uint64 addr, int n)
         f->off += r;
       iunlock(f->ip);
       end_op();
-
       if(r != n1){
         // error from writei
         break;

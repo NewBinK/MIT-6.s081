@@ -28,7 +28,22 @@ trapinithart(void)
 {
   w_stvec((uint64)kernelvec);
 }
-
+//return 0 if success, -1 if failed
+int invail_page_handler(struct proc *p, uint64 va){
+  if(va >= p->sz){return -1;}//invailed access
+  void *mem;
+  if((mem = kalloc()) == 0){
+    printf("out of memery!\n");
+    return -1;
+  }
+  memset(mem, 0, PGSIZE);//fill with 0
+  if((mappages(p->pagetable, va, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U))!=0){
+    printf("map failed\n");
+    kfree(mem);
+    return -1;
+  }
+  return 0;
+}
 //
 // handle an interrupt, exception, or system call from user space.
 // called from trampoline.S
@@ -78,7 +93,8 @@ usertrap(void)
     va = PGROUNDDOWN(va);
     pte_t* pte = walk(p->pagetable, va, 0);
     if(pte == 0 || ((*pte)&PTE_V) == 0){//这个虚拟内存还没映射
-      p->killed = 1;
+      // p->killed = 1;
+      if(invail_page_handler(p, va) != 0) p->killed = 1;
       goto kill;
     }
     //处理COW
@@ -108,15 +124,34 @@ usertrap(void)
 
     
 
-  }else {
+  }else if(r_scause() == 13){
+    uint64 va = r_stval();
+    
+    printf("read caused trap %p!\n", va);
+    if(va >= MAXVA){//处理越界
+      p->killed = 1;
+      goto kill;
+    }
+    //得到虚拟内存and对应页表内容
+    va = PGROUNDDOWN(va);
+    pte_t* pte = walk(p->pagetable, va, 0);
+    if(pte == 0 || ((*pte)&PTE_V) == 0){//这个虚拟内存还没映射
+      if(invail_page_handler(p, va) != 0) p->killed = 1;
+      goto kill;
+    }else{
+      p->killed = 1;
+    }
+  }
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
 
 kill:
-  if(p->killed)
+  if(p->killed){
     exit(-1);
+  }
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)

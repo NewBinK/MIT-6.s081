@@ -5,7 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
-
+#include "spinlock.h"
+#include "proc.h"
 /*
  * the kernel's page table.
  */
@@ -174,8 +175,10 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     panic("uvmunmap: not aligned");
 
   for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
-    if((pte = walk(pagetable, a, 0)) == 0)
+    if((pte = walk(pagetable, a, 0)) == 0){
+      continue;// can't walk to the page is ok
       panic("uvmunmap: walk");
+    }
     if((*pte & PTE_V) == 0){
       continue;//page not map is ok!
       panic("uvmunmap: not mapped");
@@ -312,10 +315,14 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
 
   for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
+    if((pte = walk(old, i, 0)) == 0){
+      continue;//not pte not exit is ok
       panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
+    }
+    if((*pte & PTE_V) == 0){
+      continue;//page not present is ok
       panic("uvmcopy: page not present");
+    }
 
     (*pte) &= (~PTE_W);
     (*pte) |= PTE_COW;
@@ -324,9 +331,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       goto err;
     }
     *new_pte = *pte;
-    // if(PTE2PA(*new_pte) == 0){
-    //   printf("pte=%p  pa=%p\n", pte, PTE2PA(*pte));
-    // }
     update_ref((void*)PTE2PA(*new_pte), 1);
 
   }
@@ -363,9 +367,15 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
   
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-    pte_t * pte = walk(pagetable, va0, 0);
-    if(pte == 0 || (*pte&PTE_V) == 0 || (*pte&PTE_U) == 0){return -1;}//获取页表项
+    pte_t * pte = walk(pagetable, va0, 0);//获取页表项
+    if(pte == 0 || (*pte&PTE_V) == 0 ){
+      struct proc *p = myproc();
+      if(invail_page_handler(p, va0) != 0) return -1;
+      pte = walk(p->pagetable, va0, 0);
+    }
     
+    if((*pte&PTE_U) == 0 ) return -1;//用户对这片空间没有权限
+
     pa0 = PTE2PA(*pte);
     // pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
@@ -406,13 +416,26 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 {
+  if(srcva >= MAXVA){
+    return -1;
+  }
+
   uint64 n, va0, pa0;
 
   while(len > 0){
     va0 = PGROUNDDOWN(srcva);
+    // pa0 = walkaddr(pagetable, va0);
+    // if(pa0 == 0)
+    //   return -1;
+    pte_t *pte = walk(pagetable, va0, 0);
+    if(pte == 0 || (*pte&PTE_V) == 0){
+      struct proc *p = myproc();
+      if(invail_page_handler(p, va0) != 0) return -1;
+    }
     pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
+    if(pa0 == 0)//没有权限
       return -1;
+  
     n = PGSIZE - (srcva - va0);
     if(n > len)
       n = len;
