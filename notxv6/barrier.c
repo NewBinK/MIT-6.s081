@@ -30,7 +30,18 @@ barrier()
   // Block until all threads have called barrier() and
   // then increment bstate.round.
   //
-  
+  pthread_mutex_lock(&bstate.barrier_mutex);
+  bstate.nthread++;
+  if(bstate.nthread < nthread) {
+    pthread_cond_wait(&bstate.barrier_cond, &bstate.barrier_mutex);
+  }
+  else {
+    bstate.nthread = 0;
+    bstate.round++;
+    pthread_cond_broadcast(&bstate.barrier_cond);//记得唤醒其他等待的线程
+  }
+  pthread_mutex_unlock(&bstate.barrier_mutex);
+  return;
 }
 
 static void *
@@ -44,7 +55,7 @@ thread(void *xa)
     int t = bstate.round;
     assert (i == t);
     barrier();
-    usleep(random() % 100);
+    // usleep(random() % 100);
   }
 
   return 0;
