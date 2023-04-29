@@ -341,8 +341,10 @@ exit(int status)
 {
   struct proc *p = myproc();
 
-  if(p == initproc)
+  if(p == initproc){
+    printf("%d\n", cpuid());
     panic("init exiting");
+  }
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
@@ -441,6 +443,7 @@ scheduler(void)
   struct cpu *c = mycpu();
   
   c->proc = 0;
+  // printf("cpu:%d\n", cpuid());
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
