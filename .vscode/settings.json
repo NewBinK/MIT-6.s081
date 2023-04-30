@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "semaphore": "c",
-        "stop_token": "c"
+        "stop_token": "c",
+        "defs.h": "c"
     }
 }
